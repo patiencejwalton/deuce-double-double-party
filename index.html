@@ -776,7 +776,7 @@
         })
         .catch(function(){});
       /* 2) Trigger the automatic confirmation email */
-      fetch(SB_URL+'/functions/v1/send-rsvp-confirmation',{method:'POST',headers:headers,body:JSON.stringify({email:email,name:name,ticketCode:code,guestCount:count})})
+      fetch(SB_URL+'/functions/v1/send-rsvp-confirmation',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email:email,name:name,ticketCode:code,guestCount:count})})
         .then(function(r){
           if(r.ok){
             $('inMsg').textContent='✓ You\'re in! A confirmation email was sent to '+email+' with your ticket. Download your ticket with the QR and add it to your calendar.';
