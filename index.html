@@ -746,6 +746,46 @@
     $('emailBtn').href='mailto:'+encodeURIComponent(myEmail)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
   }
 
+  /* ---------- Back-end sync: save the RSVP + automatic confirmation email ----------
+     Fire-and-forget: a failure of either call never blocks or breaks the on-page ticket. */
+  var SB_URL='https://jcquahyuouhkgjjfizas.supabase.co';
+  var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjcXVhaHl1b3Voa2dqamZpemFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUwNTUwNjksImV4cCI6MjExMDYzMTA2OX0.y7Y-4CSW_U8Mt5w-MG3CjCQUygVIqMsBYO4A09aKOCc';
+  function sbHeaders(){
+    return {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+  }
+  function syncRsvpToBackend(name,email,note,code,count){
+    try{
+      var headers=sbHeaders();
+      /* 1) Save the RSVP: one family row, then one guest row for the ticket issued */
+      fetch(SB_URL+'/rest/v1/families',{method:'POST',headers:headers,body:JSON.stringify({parent_name:name,contact:email,allergy_notes:note?note:null})})
+        .then(function(r){ return r.ok?r.json():null; })
+        .then(function(rows){
+          if(!rows||!rows.length||!rows[0].id) return null;
+          var famId=rows[0].id;
+          function guestRow(tc){
+            return {family_id:famId,name:name,guest_type:'player',ticket_code:tc,seat_no:null,checked_in:false,card_status:'none'};
+          }
+          return fetch(SB_URL+'/rest/v1/guests',{method:'POST',headers:headers,body:JSON.stringify(guestRow(code))})
+            .then(function(r){
+              if(r.status===409){
+                /* code already in the database — retry once, suffixed, for the DB row only */
+                return fetch(SB_URL+'/rest/v1/guests',{method:'POST',headers:headers,body:JSON.stringify(guestRow(code+'-2'))}).catch(function(){});
+              }
+              return null;
+            });
+        })
+        .catch(function(){});
+      /* 2) Trigger the automatic confirmation email */
+      fetch(SB_URL+'/functions/v1/send-rsvp-confirmation',{method:'POST',headers:headers,body:JSON.stringify({email:email,name:name,ticketCode:code,guestCount:count})})
+        .then(function(r){
+          if(r.ok){
+            $('inMsg').textContent='✓ You\'re in! A confirmation email was sent to '+email+' with your ticket. Download your ticket with the QR and add it to your calendar.';
+          }
+        })
+        .catch(function(){});
+    }catch(e){ /* the on-page ticket is already issued — nothing else to do */ }
+  }
+
   $('rsvpForm').addEventListener('submit',function(e){
     e.preventDefault();
     myName=$('rName').value.trim();
@@ -766,6 +806,7 @@
     drawQR(myCode);
     buildEmailLink();
     hitBigScreen('Welcome, '+myName+'!','Ticket '+myCode+' ★ See you Dec 19');
+    syncRsvpToBackend(myName,myEmail,$('rNote').value.trim(),myCode,guests);
   });
 
   /* Ticket clicks = door scan simulation, on the page ticket AND in the email preview */
