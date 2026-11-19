@@ -775,12 +775,10 @@
             });
         })
         .catch(function(){});
-      /* 2) Trigger the automatic confirmation email */
-      fetch(SB_URL+'/functions/v1/send-rsvp-confirmation',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email:email,name:name,ticketCode:code,guestCount:count})})
-        .then(function(r){
-          if(r.ok){
-            $('inMsg').textContent='✓ You\'re in! A confirmation email was sent to '+email+' with your ticket. Download your ticket with the QR and add it to your calendar.';
-          }
+      /* 2) Submit to Jotform — it records the RSVP and sends the confirmation email */
+      fetch('https://submit.jotform.com/submit/263225816373055/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},mode:'no-cors',body:new URLSearchParams({q3_typeA:name,q4_email:email,q5_number:String(count),q6_typeA6:note?note:'',q7_typeA7:code})})
+        .then(function(){
+          $('inMsg').textContent='✓ You\'re in! A confirmation email is on its way to '+email+' with your ticket code. Download your ticket with the QR and add it to your calendar.';
         })
         .catch(function(){});
     }catch(e){ /* the on-page ticket is already issued — nothing else to do */ }
